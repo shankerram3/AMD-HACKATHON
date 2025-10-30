@@ -78,11 +78,13 @@ A 32x32 grid-based wildfire simulator with:
 
 ![Wildfire Control Game](docs/images/game_interface.png)
 
-**Please start the server from OpenEnv/src FIRST TO START THE GAME **
+Please start the server from OpenEnv/src FIRST TO START THE GAME.
 
-Run this command:
-`**cd OpenEnv/src**`
-`**uvicorn envs.wildfire_env.server.app:app --host 0.0.0.0 --port 8010**`
+Run these commands:
+```bash
+cd OpenEnv/src
+uvicorn envs.wildfire_env.server.app:app --host 0.0.0.0 --port 8010
+
 
 Challenge your trained AI in a head-to-head competition:
 - Side-by-side visualization (You vs AI)
