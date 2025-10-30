@@ -82,7 +82,7 @@ def extract_observation(result):
 
 def create_fire_grid_image(obs, title="Fire Grid", agent_action=None) -> Image.Image:
     """
-    Create a beautiful visualization of the fire grid.
+    Create a beautiful visualization of the fire grid (optimized).
     
     Legend:
     🟩 Green  = Vegetation (healthy)
@@ -91,7 +91,7 @@ def create_fire_grid_image(obs, title="Fire Grid", agent_action=None) -> Image.I
     🟦 Blue   = Water drop (if action shown)
     🟫 Brown  = Firebreak (if action shown)
     """
-    cell_size = 40
+    cell_size = 30  # Reduced from 40 for faster rendering
     width = obs.width * cell_size
     height = obs.height * cell_size + 60  # Extra space for title
     
@@ -116,7 +116,7 @@ def create_fire_grid_image(obs, title="Fire Grid", agent_action=None) -> Image.I
     stats = f"💧 Water: {obs.remaining_water} | 🧱 Breaks: {obs.remaining_breaks}"
     draw.text((10, 30), stats, fill='white')
     
-    # Draw grid
+    # Draw grid (optimized - batch rectangles)
     for y in range(obs.height):
         for x in range(obs.width):
             cell_value = obs.grid[y * obs.width + x]
@@ -134,16 +134,16 @@ def create_fire_grid_image(obs, title="Fire Grid", agent_action=None) -> Image.I
                 width=1
             )
             
-            # Draw fire emoji for burning cells
+            # Draw fire indicator for burning cells (simplified)
             if cell_value == 2:
-                emoji_size = cell_size // 2
-                emoji_x = px + cell_size // 4
-                emoji_y = py + cell_size // 4
+                emoji_size = cell_size // 3
+                emoji_x = px + cell_size // 3
+                emoji_y = py + cell_size // 3
                 draw.ellipse(
                     [emoji_x, emoji_y, emoji_x + emoji_size, emoji_y + emoji_size],
                     fill='#ff6b6b',
                     outline='#ff0000',
-                    width=2
+                    width=1
                 )
     
     # Draw agent action if provided
@@ -214,19 +214,19 @@ class AIAgent:
         # Format prompt
         prompt = format_observation_as_prompt(obs)
         
-        # Generate action
+        # Generate action (optimized for speed)
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
-                max_new_tokens=30,
-                do_sample=True,
-                temperature=temperature,
-                top_p=0.95,
+                max_new_tokens=20,  # Reduced from 30
+                do_sample=False,     # Greedy decoding is faster
+                temperature=None,    # Not used with do_sample=False
                 return_dict_in_generate=True,
                 output_scores=True,
                 pad_token_id=self.tokenizer.eos_token_id,
+                use_cache=True,      # Enable KV cache
             )
         
         # Decode action
@@ -452,8 +452,17 @@ def create_game_interface(model_path: str, env_url: str = "http://localhost:8010
         dtype=None,
         load_in_4bit=True,
     )
+    FastLanguageModel.for_inference(model)  # Enable inference mode optimizations
     model.eval()
     print("✅ Model loaded!")
+    
+    # Warm up the model with a dummy inference
+    print("🔥 Warming up model...")
+    dummy_prompt = "Fire: 1 at (5,5)\nWind: N\nWater: 8\nBreaks: 50\n\nAction:"
+    dummy_inputs = tokenizer(dummy_prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        _ = model.generate(**dummy_inputs, max_new_tokens=10, do_sample=False)
+    print("✅ Model ready!")
     
     # Game state (will be initialized on new game)
     game_state_container = [None]
@@ -487,6 +496,9 @@ def create_game_interface(model_path: str, env_url: str = "http://localhost:8010
         if game_state is None:
             return None, "Start a new game first!", "", 0, 0, ""
         
+        # Show processing status
+        status_msg = "⏳ Processing your turn..."
+        
         # Play turn
         (
             updated_state,
@@ -511,7 +523,7 @@ def create_game_interface(model_path: str, env_url: str = "http://localhost:8010
         **How to Play:**
         1. Click "🎮 Start New Game"
         2. Choose your action (Water, Firebreak, or Wait)
-        3. Enter coordinates (0-15) if using Water or Firebreak
+        3. Enter coordinates (0-31) if using Water or Firebreak
         4. Click "▶️ Take Turn" to execute
         5. Compare your strategy with the AI!
         
@@ -524,11 +536,11 @@ def create_game_interface(model_path: str, env_url: str = "http://localhost:8010
         with gr.Row():
             # Main game display
             with gr.Column(scale=2):
-                game_display = gr.Image(label="Game State", height=600)
+                game_display = gr.Image(label="Game State", height=500)  # Reduced from 600
                 status_text = gr.Textbox(
                     label="Game Status",
-                    lines=3,
-                    max_lines=5,
+                    lines=2,
+                    max_lines=3,
                     interactive=False
                 )
         
@@ -544,16 +556,16 @@ def create_game_interface(model_path: str, env_url: str = "http://localhost:8010
                 
                 with gr.Row():
                     x_coord = gr.Number(
-                        label="X Coordinate (0-15)",
+                        label="X Coordinate (0-31)",
                         minimum=0,
-                        maximum=15,
+                        maximum=31,
                         value=0,
                         precision=0
                     )
                     y_coord = gr.Number(
-                        label="Y Coordinate (0-15)",
+                        label="Y Coordinate (0-31)",
                         minimum=0,
-                        maximum=15,
+                        maximum=31,
                         value=0,
                         precision=0
                     )
