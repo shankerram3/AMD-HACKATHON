@@ -342,7 +342,7 @@ Then open: **http://localhost:7860**
 
 Below is a visual comparison between the trained AI agent and the baseline “wait” policy:
 
-![AI vs Wait](docs/images/ai_vs_wait.gif)
+![AI vs Wait](docs/gifs/ai_vs_wait.gif)
 
 -generated using python plotter.py --model /path/to/model --baseline wait --output ai_vs_wait.gif
 
