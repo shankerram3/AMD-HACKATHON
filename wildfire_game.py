@@ -39,6 +39,8 @@ class GameState:
     """Tracks the current game state."""
     human_env: WildfireEnv
     ai_env: WildfireEnv
+    human_obs: Optional[WildfireObservation] = None
+    ai_obs: Optional[WildfireObservation] = None
     human_score: int = 0
     ai_score: int = 0
     turn: int = 0
@@ -51,18 +53,28 @@ class GameState:
             self.human_history = []
         if self.ai_history is None:
             self.ai_history = []
-@dataclass
-class GameState:
-    human_env: WildfireEnv
-    ai_env: WildfireEnv
-    human_obs: Optional[WildfireObservation] = None
-    ai_obs: Optional[WildfireObservation] = None
-    human_score: int = 0
-    ai_score: int = 0
-    turn: int = 0
-    game_over: bool = False
-    human_history: List = None
-    ai_history: List = None
+
+
+# ============================================================================
+# HELPER FUNCTION TO EXTRACT OBSERVATION
+# ============================================================================
+
+def extract_observation(result):
+    """Extract WildfireObservation from result (handles both StepResult and direct obs)."""
+    # Check if it's a StepResult object by looking for the observation attribute
+    if hasattr(result, 'observation') and result.observation is not None:
+        return result.observation
+    # Check if it's already a WildfireObservation by checking for width attribute
+    elif hasattr(result, 'width'):
+        return result
+    # If it has an obs attribute (some implementations use this)
+    elif hasattr(result, 'obs'):
+        return result.obs
+    # Last resort - might be wrapped differently
+    else:
+        print(f"Warning: Unknown result type: {type(result)}, attributes: {dir(result)}")
+        return result
+
 
 # ============================================================================
 # VISUALIZATION
@@ -92,6 +104,8 @@ def create_fire_grid_image(obs, title="Fire Grid", agent_action=None) -> Image.I
         0: '#8B4513',  # Empty/Burned - brown
         1: '#2ecc71',  # Vegetation - green
         2: '#e74c3c',  # Burning - red
+        3: '#8B4513',  # Firebreak - brown
+        4: '#3498db',  # Watered - blue
     }
     
     # Draw title
@@ -267,7 +281,7 @@ class AIAgent:
                 reasons.append("   ⚠ No resources left!")
         
         # Add confidence
-        confidence_emoji = "🎯" if confidence > 0.8 else "🤔" if confidence > 0.5 else "😐"
+        confidence_emoji = "🎯" if confidence > 0.8 else "🤔" if confidence > 0.5 else "😕"
         reasons.append(f"\n{confidence_emoji} Confidence: {confidence:.1%}")
         
         return "\n".join(reasons)
@@ -278,11 +292,17 @@ class AIAgent:
 # ============================================================================
 
 def initialize_game(env_url: str, model, tokenizer):
+    """Initialize a new game with fresh environments."""
     human_env = WildfireEnv(env_url)
     ai_env = WildfireEnv(env_url)
 
-    human_obs = human_env.reset()
-    ai_obs = ai_env.reset()
+    # Reset environments - returns StepResult with .observation attribute
+    human_result = human_env.reset()
+    ai_result = ai_env.reset()
+    
+    # StepResult has .observation, .reward, .done attributes
+    human_obs = human_result.observation
+    ai_obs = ai_result.observation
 
     game_state = GameState(
         human_env=human_env,
@@ -359,9 +379,17 @@ def play_turn(
     # Increment turn
     game_state.turn += 1
     
+    # Get new observations - step() returns StepResult with .observation
+    human_new_obs = human_result.observation
+    ai_new_obs = ai_result.observation
+    
+    # Update game state with new observations
+    game_state.human_obs = human_new_obs
+    game_state.ai_obs = ai_new_obs
+    
     # Check if game over
-    human_done = human_result.done or human_obs.burning_count == 0
-    ai_done = ai_result.done or ai_obs.burning_count == 0
+    human_done = human_result.done or human_new_obs.burning_count == 0
+    ai_done = ai_result.done or ai_new_obs.burning_count == 0
     
     if human_done and ai_done:
         game_state.game_over = True
@@ -370,8 +398,6 @@ def play_turn(
         winner = ""
     
     # Create visualization
-    human_new_obs = game_state.human_env.get_observation()
-    ai_new_obs = game_state.ai_env.get_observation()
     comparison_img = create_comparison_image(
         human_new_obs, ai_new_obs,
         game_state.human_score, game_state.ai_score,
