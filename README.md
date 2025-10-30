@@ -651,20 +651,6 @@ Expert demonstrations generated using rule-based policy inspired by:
 
 MIT License - see [LICENSE](LICENSE) file for details
 
----
-
-## 📞 Contact
-
-**Project Author**: Ram Sankar Harikrishnan  
-**Hackathon**: [Your Hackathon Name]  
-**Date**: October 2025
-
-For questions or collaboration:
-- GitHub: [Your GitHub]
-- Email: [Your Email]
-- Project Link: [Your Repo URL]
-
----
 
 ## 🎯 Quickstart Commands
 
