@@ -76,7 +76,7 @@ A 32x32 grid-based wildfire simulator with:
 ### 3. Interactive Game
 
 you can now play a beta version of the game against the AI-Model at this link
-[![Huggingface](https://huggingface.co/spaces/shankerram3/wildfire-game)
+[[Huggingface space link](https://huggingface.co/spaces/shankerram3/wildfire-game)
 
 ![Wildfire Control Game](docs/images/game_interface.png)
 
